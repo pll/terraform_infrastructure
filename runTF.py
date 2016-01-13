@@ -23,12 +23,17 @@ remoteStateLinkName = 'terraform.tfstate'
 TF = "/usr/local/bin/terraform"
 
 def main():
-    opts   = parseArgs(sys.argv)
+    opts,tfOpts = parseArgs(sys.argv)
+    tfOpts.remove('--')
+    tfOpts.insert(0, TF)
     config = ConfigParser.ConfigParser()
 
     config.read(os.path.expanduser('~/.aws/credentials'))
     key          = config.get(opts.profile, 'aws_access_key_id')
     secret       = config.get(opts.profile, 'aws_secret_access_key')
+
+    os.environ['AWS_ACCESS_KEY_ID']     = key
+    os.environ['AWS_SECRET_ACCESS_KEY'] = secret
 
     flags = []
 
@@ -48,24 +53,12 @@ def main():
     print "VPC    = %s" % opts.vpc
 
 
-    cmd = flags
-    if opts.apply:
-        cmd.insert(0,"apply")
-    if opts.tfget:
-        cmd.insert(0,'get')
-    if opts.plan:
-        cmd.insert(0,'plan -module-depth=-1')
-
-    if opts.refresh:
-        cmd.insert(0,'refresh')
-
-    if opts.destroy:
-        cmd.insert(0, 'destroy')
-        if opts.force:
-            cmd.insert(1, '-force')
-            
-
-    if opts.remote:
+    # cmd = flags
+    cmdOpts = tfOpts + flags
+    if tfOpts[1] == 'show':
+        cmdOpts = tfOpts
+        
+    if tfOpts[1] == 'remote':
         remoteCmd = [
             "AWS_ACCESS_KEY_ID=%s" % key,
             "AWS_SECRET_ACCESS_KEY=%s" % secret,
@@ -80,9 +73,8 @@ def main():
         setStateFile(opts.vpc)
         sys.exit()
             
-    cmd.insert(0,TF)
     setStateFile(opts.vpc)
-    runCommand(cmd)
+    runCommand(cmdOpts)
 
 
 def runCommand(cmd):
@@ -109,6 +101,12 @@ def setStateFile(vpc):
 
     # Move into the .terraform dir
     os.chdir(remoteStateDir),
+
+    # Force delete of backup state file
+    try:
+        os.unlink("%s.backup" % remoteStateLinkName)
+    except:
+        pass
 
     print "Renaming \n\t%s \nto:\n\t%s" % (remoteStateLinkName, dstFile)
 
@@ -150,17 +148,10 @@ def parseArgs(argv):
          list of set options
          list of additional args not set as options
          """
-    applyDoc   = "Run 'terraform apply'"
-    descrDoc   = "Run terraform to build a VPC"
-    destroyDoc = "Run 'terraform destroy'"
-    forceDoc   = "Add -force to 'terraform destroy'"
-    planDoc    = "Run 'terraform plan'"
-    profileDoc = "Use PROFILE as listed in ~/.aws/credentials"
-    remoteDoc  = "Configure VPC for remote state"
-    regionDoc  = "Set region for S3 bucket to store remote config state in"
-    refreshDoc = "Run 'terraform refresh'"
-    tfgetDoc   = "Call terraform get to fetch all modules for this config"
-    vpcDoc     = "Name of the VPC to create"
+    descrDoc    = "Run terraform to build a VPC"
+    profileDoc  = "Use PROFILE as listed in ~/.aws/credentials"
+    regionDoc   = "Set region for S3 bucket to store remote config state in"
+    vpcDoc      = "Name of the VPC to create"
     
     # Option help strings:
     parser     = argparse.ArgumentParser( prog        = myprog,
@@ -181,89 +172,25 @@ def parseArgs(argv):
                               help     = vpcDoc,
                              )
 
-    applyOpts = parser.add_argument_group('apply')
-    applyOpts.add_argument('--apply',
-                           action  = 'store_true',
-                           dest    = 'apply',
-                           help    = applyDoc,
-                          )
-
-    getOpts = parser.add_argument_group('get')
-    getOpts.add_argument('--tfget',
-                           action  = 'store_true',
-                           dest    = 'tfget',
-                           help    = tfgetDoc,
-    )
-
-
-    destroyOpts = parser.add_argument_group('destroy')
-    destroyOpts.add_argument('--destroy',
-                             action  = 'store_true',
-                             dest    = 'destroy',
-                             help    = destroyDoc,
-                            )
-    destroyOpts.add_argument('--force',
-                             action  = 'store_true',
-                             dest    = 'force',
-                             help    = forceDoc,
-                            )
-
-    refreshOpts = parser.add_argument_group('refresh')
-    refreshOpts.add_argument('--refresh',
-                             action  = 'store_true',
-                             dest    = 'refresh',
-                             help    = refreshDoc,
-                            )
-
-
     remoteOpts = parser.add_argument_group('remote')
-    remoteOpts.add_argument('--remote-config',
-                            action  = 'store_true',
-                            dest    = 'remote',
-                            help    = remoteDoc,
-                           )
-
     remoteOpts.add_argument('--region',
                             action  = 'store',
                             dest    = 'region',
                             help    = regionDoc,
                            )
 
-    planOpts = parser.add_argument_group('plan')
-    planOpts.add_argument('--plan',
-                          action  = 'store_true',
-                          dest    = 'plan',
-                          help    = planDoc,
-                         )
-
-    opts = parser.parse_args()
+    opts, tfOpts = parser.parse_known_args()
 
     msg = ''
+    if tfOpts[1] == 'remote' and not opts.region:
+        msg = "You must set --region when using remote"
     if (len(argv) < 2):
         printHelp(msg,parser)
 
-    if ( (opts.apply   and opts.destroy) or
-         (opts.apply   and opts.remote)  or
-         (opts.destroy and opts.remote) ):
-        msg = "--apply, --destroy, and --remote are mutually exclusive."
-
-    if ( (opts.apply   and opts.region ) or
-         (opts.destroy and opts.region ) or
-         (opts.tfget   and opts.region ) ):
-        msg = "--region may only be used with --remote"
-
-    if (opts.force and not opts.destroy):
-        msg = "--force can only be used with --destroy"
-
-    if (opts.remote and not opts.region):
-        msg = "--remote requires --region"
-
-    if (opts.region and not opts.remote):
-        msg = "--region requires --remote"
-
     if msg:
-        printHelp(msg, parser)    
-    return opts
+        printHelp(msg, parser)
+        
+    return opts, tfOpts
 
 def printHelp(msg, parser):
     if msg:
