@@ -31,21 +31,21 @@ resource "aws_security_group" "nat_sg" {
       from_port   = 22
       to_port     = 22
       protocol    = "tcp"
-      cidr_blocks = ["<subnet offset to start at>.<subnet offset to start at>.<subnet offset to start at>.<subnet offset to start at>/<subnet offset to start at>"]
+      cidr_blocks = ["0.0.0.0/0"]
    }
 
-   # Allow all port <subnet offset to start at><subnet offset to start at> traffic inbound to private subnets
+   # Allow all port 80 traffic inbound to private subnets
    ingress {
-       from_port   = <subnet offset to start at><subnet offset to start at>
-       to_port     = <subnet offset to start at><subnet offset to start at>
+       from_port   = 80
+       to_port     = 80
        protocol    = "tcp"
        cidr_blocks = [ "${aws_subnet.priv.*.cidr_block}" ]
    }		     
 
-   # Allow all port 44<Number of subnets> traffic inbound to private subnets
+   # Allow all port 443 traffic inbound to private subnets
    ingress {
-       from_port   = 44<Number of subnets>
-       to_port     = 44<Number of subnets>
+       from_port   = 443
+       to_port     = 443
        protocol    = "tcp"
        cidr_blocks = [ "${aws_subnet.priv.*.cidr_block}" ]
    }		     
@@ -56,10 +56,10 @@ resource "aws_security_group" "nat_sg" {
 
    # Allow all traffic out from this subnet to anywhere
    egress {
-      from_port   = <subnet offset to start at>
-      to_port     = <subnet offset to start at>
+      from_port   = 0
+      to_port     = 0
       protocol    = "-1"
-      cidr_blocks = ["<subnet offset to start at>.<subnet offset to start at>.<subnet offset to start at>.<subnet offset to start at>/<subnet offset to start at>"]
+      cidr_blocks = ["0.0.0.0/0"]
    }
 
    tags           = {
@@ -88,28 +88,28 @@ resource "aws_security_group" "datacenter_sg" {
       to_port     = 22
       protocol    = "tcp"
       cidr_blocks = [
-                     "<subnet offset to start at>.<subnet offset to start at>.<subnet offset to start at>.<subnet offset to start at>/<subnet offset to start at>", 
+                     "0.0.0.0/0", 
                      "${var.datacenter_cidr}"
 		    ]
    }
    ingress {
-       from_port = <subnet offset to start at>
-       to_port = <subnet offset to start at>
+       from_port = 0
+       to_port = 0
        protocol = "-1"
        self = true
    }
 
    ingress {
-       from_port = <subnet offset to start at>
-       to_port = <subnet offset to start at>
+       from_port = 0
+       to_port = 0
        protocol = "-1"
    }
 
    egress {
-      from_port   = <subnet offset to start at>
-      to_port     = <subnet offset to start at>
+      from_port   = 0
+      to_port     = 0
       protocol    = "-1"
-      cidr_blocks = ["<subnet offset to start at>.<subnet offset to start at>.<subnet offset to start at>.<subnet offset to start at>/<subnet offset to start at>"]
+      cidr_blocks = ["0.0.0.0/0"]
    }
 
    tags           = {
@@ -122,6 +122,6 @@ resource "aws_security_group" "datacenter_sg" {
                     }
 }
 
-output "nat_sg" {
-   value = "${aws_security_group.nat_sg.id}"
+output "datacenter_sg" {
+   value = "${aws_security_group.datacenter_sg.id}"
 }

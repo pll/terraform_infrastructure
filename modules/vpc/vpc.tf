@@ -4,6 +4,9 @@ provider "aws" {
     region     = "${var.aws_region}"
 }
 
+######################################################################
+# Create the VPC and tag it
+##
 resource "aws_vpc" "vpc" {
     cidr_block           = "${var.vpc_cidr}"
     enable_dns_support   = 1
@@ -35,9 +38,10 @@ output "igw_id" {
 }
 
 ######################################################################
-## Set up VPN Gateway
+## Set up VPN Gateway if necessary
 ###
 resource "aws_vpn_gateway" "vgw" {
+    count  = "${var.vpc_vgw_exists}"
     vpc_id = "${aws_vpc.vpc.id}"
     tags   = {
                "Name"    = "${var.env}-${var.datacenter}-vgw"
@@ -53,7 +57,7 @@ output "vpc_name" {
     value = "${aws_vpc.vpc.tags.Name}"
 }
 output "vpc_id" {
-   value = "${aws_vpc.vpc.id}"
+   value = "${join(",", aws_vpc.vpc.*.id)}"
 }
 output "vpc_cidr" {
    value = "${var.vpc_cidr}"
