@@ -16,12 +16,12 @@ module "vpc" {
     vpc_cidr           = "${var.vpc_cidr}"
     pub_count          = "${var.pub_count}"
     pub_offset         = "${var.pub_offset}"
-
     pri_count          = "${var.pri_count}"
     pri_offset         = "${var.pri_offset}"
 
     datacenter         = "${var.datacenter}"
     datacenter_cidr    = "${var.datacenter_cidr}"
+    vpc_vgw_exists     = "${var.aws_vgw_exists}"
 }
 
 module "dns" {
